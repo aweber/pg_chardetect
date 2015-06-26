@@ -8,24 +8,22 @@ The pg_chardetect extension uses software from ICU (http://site.icu-project.org/
 
 Note this version is targeted specifically for PostgreSQL 9.0 on Ubuntu 10.0.4 LTS.  Ports to other versions of PostgreSQL and OS's are welcome!
 
+DANGER, WILL ROBINSON! DANGER!
+------------------------------
+
+CHARACTER SET DETECTION IS NOT NECESSARILY DETERMINISTIC, PARTICULARLY FOR LATIN-BASED LANGUAGES.  THE DETECTOR MAY MAKE THE WRONG GUESS AND TRANSCODE YOUR DATA INCORRECTLY!  BE SURE TO FOLLOW PRUDENT PROCEDURES TO PROTECT YOUR DATA, INCLUDING BUT NOT LIMITED TO BACKUPS, HISTORY TABLES, AND THROWAWAY DATABASES!
+
+YOU HAVE BEEN WARNED!
+
 Building the ICU Libraries:
 ---------------------------
 
 ### Build and Install ICU4C - 54.1:
 
-Follow the instructions at http://www.icu-project.org/repos/icu/icu/tags/release-54-1/readme.html to download and install the ICU libraries and headers. 
-
-### Build and Install pltoolbox PostgreSQL extension
-
-PLToolbox provides low-level functions to dynamically manipulate fields within records, among others.  The functions are installed in schema 'pst'.  It uses PGXS for building and installing:
+Follow the instructions at http://www.icu-project.org/repos/icu/icu/tags/release-54-1/readme.html to download and install the ICU libraries and headers.  Alternatively, you can install the necessary ICU libraries and headers using a package manager, e.g:
 
 ```bash
-wget http://pgfoundry.org/frs/download.php/3596/pltoolbox-1.0.3.tar.gz
-tar xf pltoolbox-1.0.3.tar.gz
-cd pltoolbox
-sudo USE_PGXS=1 make clean install
-sudo su - postgres
-psql app -f $(pg_config --sharedir)/contrib/pltoolbox.sql
+sudo apt-get install -y libicu42 libicu42-dbg libicu-dev
 ```
 
 ### Building the pg_chardetect PostgreSQL extension
@@ -40,7 +38,7 @@ sudo apt-get install postgresql-dev
 sudo apt-get install postgresql-server-dev-9.0
 ```
 
-The above libraries are installed in `/usr/local/lib`.  Run
+The ICU libraries are installed in `/usr/local/lib`.  Run
 
 ```bash
 sudo ldconfig -v | grep icu
@@ -62,7 +60,8 @@ To install the extension into a database server run:
 
 ```bash
 sudo su - postgres
-psql app -f $(pg_config --sharedir)/contrib/pg_chardetect.sql
+createdb test
+psql test -f $(pg_config --sharedir)/contrib/pg_chardetect.sql
 ```
 
 ### Testing the pg_chardetect extension
@@ -70,7 +69,7 @@ psql app -f $(pg_config --sharedir)/contrib/pg_chardetect.sql
 As postgres load the test data:
 
 ```bash
-cd pg_chardetect/test
+cd pg_chardetect/test-data
 zcat test.dump_p.gz | psql 
 ```
 
@@ -83,7 +82,10 @@ The output of `char_set_detect(text)` is a `(encoding name, language, confidence
 
 The output of convert_to_UTF8(text) is, of course, the input text converted to UTF8, if possible.  If not possible the original text is returned.  
 
-The query should run without error.  The ICU library may or may not report NULL for the charset detection tuple, depending on whether or not it could detect the character set.
+The query above should run without error.  The ICU library may or may not report NULL for the charset detection tuple, depending on whether or not it could detect the character set.
+
+Example usage of the pg_chardetect functions can be found in test-data/pg_chardetect-test.sql, including a trigger function template for automatic conversion as your database accepts writes.  This technique will bloat your tables during updates, so be sure to (auto)vacuum well and often!
+
 
 ### More Tests!
 
