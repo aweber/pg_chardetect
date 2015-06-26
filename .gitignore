@@ -1,0 +1,4 @@
+*.o
+pg_chardetect.sql
+pg_chardetect.so
+

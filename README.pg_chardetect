@@ -1,0 +1,25 @@
+pg_chardetect is a PostgreSQL extension to detect the character set of
+a string-based column.  It returns the character set name that can
+then be used to convert the string data to a different character set,
+using the PostgreSQL convert(string bytea, ...) functions.  This is primarily
+useful if your database encoding is SQL_ASCII.
+
+This extension exposes one function,
+
+    char_set_detect (charbytes text, detection_method int)
+
+The inputs are:
+
+    * charbytes        - string data to examine
+    * detection_method - use 0=ICU, 1=libchardet
+
+The function returns a single tuple
+
+    (encoding, language, confidence)
+
+where:
+    encoding   - IANA name of the character encoding
+    language   - language of charbytes; null if detection_method is not 0
+    confidence - 0 and 100, 0 being no confidence and 100 being
+                 complete confidence.
+

@@ -1,0 +1,126 @@
+SET search_path = public;
+
+DROP FUNCTION IF EXISTS public.char_set_detect(text);
+DROP TYPE IF EXISTS public.char_set_detect;
+
+CREATE TYPE public.char_set_detect
+AS
+(
+  encoding   TEXT,
+  language   TEXT,
+  confidence INTEGER
+);
+
+CREATE OR REPLACE FUNCTION public.char_set_detect
+(
+    IN charbytes text              -- text string to check
+)
+RETURNS char_set_detect
+AS 'MODULE_PATHNAME', 'char_set_detect'
+LANGUAGE C STRICT;
+
+COMMENT ON FUNCTION public.char_set_detect (text) IS '
+char_set_detect attempts to detect the charset encoding of a character
+field.
+
+INPUT:  charbytes - text to analyze
+
+OUTPUT: encoding - IANA encoding name
+        language - language of charbytes; NULL if detection_method != 0
+        confidence - range from 0 (no confidence) to 100 (absolute confidence)
+';
+
+-- Borrowed from Pavel Stěhule
+-- http://okbob.blogspot.com/2009/08/mysql-functions-for-postgresql.html
+DROP FUNCTION IF EXISTS public.direct_bytea_to_cstring(bytea);
+
+CREATE OR REPLACE FUNCTION public.direct_bytea_to_cstring(bytea)
+RETURNS cstring
+LANGUAGE internal
+IMMUTABLE STRICT
+AS
+$$textout$$;
+
+-- Convert from detected charset to UTF8 using ICU functions
+-- This can handle more detected encodings than PostgreSQL does.
+
+DROP FUNCTION IF EXISTS public.convert_to_UTF8(text, boolean);
+
+CREATE OR REPLACE FUNCTION public.convert_to_UTF8
+(
+    IN  text_in text,
+    IN  force   boolean,
+    OUT text_out text,
+    OUT converted boolean,
+    OUT dropped_bytes boolean
+)
+AS 'MODULE_PATHNAME', 'convert_to_UTF8'
+LANGUAGE C STRICT;
+
+COMMENT ON FUNCTION public.convert_to_UTF8(text, boolean) IS '
+convert_to_UTF8 attempts to convert text input by automatically
+detecting its encoding and converting the bytestream to valid UTF8.
+It checks the input can be reliably converted from the given
+encoding to UTF8 and back by comparing the bytestreams of the
+original text input with the reverse (UTF8 to source encoding) conversion.
+If the conversion is not reliable or has other problems the original
+input text string is returned.  Conversion status is also returned.
+
+If force is TRUE the function will drop invalid bytes from the input 
+until it can convert the string to UTF8.  If it does, dropped_bytes
+will be TRUE.
+';
+
+-- Convert from detected charset to UTF8 using db functions
+DROP FUNCTION IF EXISTS public.convert_to_UTF8(text, text);
+
+CREATE OR REPLACE FUNCTION public.convert_to_UTF8
+(
+    IN  text_in text,
+    IN  src_encoding text,
+    OUT text_out text,
+    OUT converted boolean
+)
+STRICT
+LANGUAGE plpgsql
+AS
+$$
+DECLARE
+    orig    bytea;
+    forward bytea;
+    back    bytea;
+BEGIN
+    BEGIN
+        orig    := convert_to(text_in, getdatabaseencoding());
+        forward := convert(orig, src_encoding, 'UTF8');
+        back    := convert(forward, 'UTF8', src_encoding);
+
+        IF (orig = back)
+        THEN
+          text_out := public.direct_bytea_to_cstring(forward);
+          converted := true;
+        ELSE
+          RAISE WARNING 'Cannot reliably convert "%" to UTF8.', text_in;
+          text_out := text_in;
+          converted := false;
+        END IF;
+
+    EXCEPTION WHEN others THEN
+      RAISE WARNING 'Cannot convert "%" from % to UTF8.', text_in, src_encoding;
+      RAISE WARNING '% %', SQLSTATE, SQLERRM;
+      text_out := text_in;
+      converted := false;
+    END;
+
+    RETURN;
+END;
+$$;
+
+COMMENT ON FUNCTION public.convert_to_UTF8(text, text) IS '
+convert_to_UTF8 attempts to convert text input given
+a source encoding.  It checks the input can be reliably converted from the given
+encoding to UTF8 and back by comparing the bytea representations of the
+original text input with the reverse (UTF8 to source encoding) conversion.
+If the conversion is not reliable or has other problems the original
+input text string is returned.  Also returned is the conversion status.
+';
