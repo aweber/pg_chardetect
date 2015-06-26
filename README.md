@@ -13,7 +13,9 @@ DANGER, WILL ROBINSON! DANGER!
 
 CHARACTER SET DETECTION IS NOT NECESSARILY DETERMINISTIC, PARTICULARLY FOR LATIN-BASED LANGUAGES.  THE DETECTOR MAY MAKE THE WRONG GUESS AND TRANSCODE YOUR DATA INCORRECTLY!  BE SURE TO FOLLOW PRUDENT PROCEDURES TO PROTECT YOUR DATA, INCLUDING BUT NOT LIMITED TO BACKUPS, HISTORY TABLES, AND THROWAWAY DATABASES!
 
-YOU HAVE BEEN WARNED!
+
+<p align="center"> YOU HAVE BEEN WARNED! </p>
+
 
 Building the ICU Libraries:
 ---------------------------
@@ -54,9 +56,9 @@ git clone https://github.com/aweber/pg_chardetect.git
 make clean && make && sudo make install
 ```
 
-The supporting libraries above must be built and installed prior to building the pg_chardetect extension.  The install step for pg_chardetect above will copy `pg_chardetect.sql` and `pg_chardetect.so` to the appropriate locations to run under PostgreSQL.
+The supporting libraries above must be built and installed prior to building the pg_chardetect extension.  The install step will copy `pg_chardetect.sql` and `pg_chardetect.so` to the appropriate locations to run under PostgreSQL.
 
-To install the extension into a database server run:
+To install the extension into a PostgreSQL database server run:
 
 ```bash
 sudo su - postgres
@@ -70,13 +72,13 @@ As postgres load the test data:
 
 ```bash
 cd pg_chardetect/test-data
-zcat test.dump_p.gz | psql 
+zcat test.dump_p.gz | psql test
 ```
 
 Run the following to observe the extension in action:
 
 ```bash
-psql -c "select original_encoding, language, convert_this, convert_this::bytea, convert_this::bytea, char_set_detect(convert_this), convert_to_UTF8(convert_this) from test"
+psql test -c "select original_encoding, language, convert_this, convert_this::bytea, char_set_detect(convert_this), convert_to_UTF8(convert_this, true) from test"
 ```
 The output of `char_set_detect(text)` is a `(encoding name, language, confidence level)` tuple.  The encoding name should be an IANA encoding name.  ICU reports the language, if it can be determined.  The confidence level ranges from 0 to 100, with 0 begin no confidence and 100 be absolute confidence.
 
@@ -84,7 +86,7 @@ The output of convert_to_UTF8(text) is, of course, the input text converted to U
 
 The query above should run without error.  The ICU library may or may not report NULL for the charset detection tuple, depending on whether or not it could detect the character set.
 
-Example usage of the pg_chardetect functions can be found in test-data/pg_chardetect-test.sql, including a trigger function template for automatic conversion as your database accepts writes.  This technique will bloat your tables during updates, so be sure to (auto)vacuum well and often!
+Example usage of the pg_chardetect db functions can be found in test-data/pg_chardetect-test.sql, including a trigger function template for automatic conversion during inserts and updates.  The update technique *will* bloat your tables, so be sure to (auto)vacuum well and often!
 
 
 ### More Tests!
