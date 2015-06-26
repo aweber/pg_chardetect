@@ -1,10 +1,13 @@
 pg_chardetect uses software from
 
  - ICU (http://site.icu-project.org/)
+ - PLToolBox2 (http://pgfoundry.org/projects/pstcollection/)
 
 Copyright (c) 2014, AWeber Communications.
 
-pg_chardetect is licensed under the PostgreSQL license.
+pg_chardetect is licensed under the PostgreSQL license.  Other software
+used by pg_chardetect is licensed under the respective copyright
+holder's license.
 
 Permission to use, copy, modify, and distribute this software and its
 documentation for any purpose, without fee, and without a written agreement
